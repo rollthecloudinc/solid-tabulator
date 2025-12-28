@@ -1,5 +1,5 @@
 {
-  "name": "quell-plugin",
+  "name": "solid-tabulator",
   "version": "20.0.0-alpha.21",
   "scripts": {
     "ng": "ng",
@@ -46,8 +46,10 @@
     "@rollthecloudinc/plugin": "20.0.0-alpha.21",
     "@rollthecloudinc/utils": "20.0.0-alpha.21",
     "@softarc/native-federation-runtime": "^3.0.0",
+    "luxon": "^3.7.2",
     "number-string": "^2.0.1",
     "rxjs": "~7.5.2",
+    "tabulator-tables": "^6.3.1",
     "tslib": "^2.3.1",
     "webpack": "^5.65.0",
     "webpack-dev-server": "^4.7.1",

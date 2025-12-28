@@ -166,7 +166,7 @@
             "tsConfig": "projects/plugin/tsconfig.app.json",
             "rebuildDelay": 0,
             "dev": true,
-            "port": 3000
+            "port": 3002
           },
           "configurations": {
             "development": {
@@ -182,7 +182,7 @@
         "serve-original": {
           "builder": "@angular-devkit/build-angular:dev-server", 
           "options": {
-            "port": 3000,
+            "port": 3002,
             "buildTarget": "plugin:esbuild:development"
           },
           "configurations": {
@@ -202,7 +202,7 @@
             "tsConfig": "projects/plugin/tsconfig.app.json",
             "rebuildDelay": 0,
             "dev": true,
-            "port": 3000
+            "port": 3002
           },
           "configurations": {
             "development": {

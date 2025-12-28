@@ -5,6 +5,7 @@ module.exports = withNativeFederation({
   
   exposes: {
     './DownloadModule': './projects/plugin/src/app/download.module.ts',
+    './TabulatorModule': './projects/plugin/src/app/tabulator.module.ts',
     './Download': './projects/plugin/src/app/download.component.ts',
     './Upload': './projects/plugin/src/app/upload.component.ts'
   },
@@ -19,7 +20,11 @@ module.exports = withNativeFederation({
     }),
   },
 
-  skip: ['rxjs'],
+  skip: [
+    'rxjs',
+    'tabulator-tables',
+    "luxon"
+  ],
 
   features: {
     // New feature for more performance and avoiding
