@@ -1,16 +1,18 @@
 import { NgModule } from '@angular/core';
-import { DownloadComponent } from './download.component';
-import { DownloadContentHandler } from './handlers/download-content.handler';
 import { ContentPluginManager } from '@rollthecloudinc/content';
-import { pluginDownloadContentPluginFactory, pluginTabulatorContentPluginFactory } from './app.factories';
+import { pluginTabulatorContentPluginFactory } from './app.factories';
 import { CommonModule } from '@angular/common';
 import { TabulatorContentHandler } from './handlers/tabulator-content.handler';
 import { TabulatorRendererComponent } from './tabulator-renderer/tabulator-renderer.component';
 import { TabulatorEditorComponent } from './tabulator-editor/tabulator-editor.component';
+import { MaterialModule } from '@rollthecloudinc/material';
+import { ReactiveFormsModule } from '@angular/forms';
 
 @NgModule({
   imports: [
-    CommonModule
+    CommonModule,
+    ReactiveFormsModule,
+    MaterialModule
   ],
   declarations: [
     TabulatorRendererComponent,

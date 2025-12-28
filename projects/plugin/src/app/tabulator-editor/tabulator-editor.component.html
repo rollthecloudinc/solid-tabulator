@@ -1,1 +1,20 @@
-Tabulator Editor Component
+<form [formGroup]="contentForm" (ngSubmit)="submit()">
+
+    <mat-dialog-content>
+
+        <div>
+            <mat-form-field>
+            <mat-label>Binding</mat-label>
+            <mat-select required formControlName="bindingOption">
+                <mat-option *ngFor="let bo of bindableOptions" [value]="bo">{{ bo }}</mat-option>
+            </mat-select>
+            </mat-form-field>
+        </div>
+
+    </mat-dialog-content>
+
+    <mat-dialog-actions>
+        <button type="submit" mat-raised-button color="primary" mat-dialog-close [disabled]="!contentForm.valid">Save</button>       
+    </mat-dialog-actions>
+
+</form>

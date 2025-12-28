@@ -21,7 +21,7 @@ export const pluginTabulatorContentPluginFactory  = ({ handler }: { handler: Tab
     id: 'plugin_tabulator',
     title: 'Tabulator Table',
     selectionComponent: undefined,
-    editorComponent: undefined, //TabulatorEditorComponent,
+    editorComponent: TabulatorEditorComponent,
     renderComponent: TabulatorRendererComponent,
     handler
   } as any);
