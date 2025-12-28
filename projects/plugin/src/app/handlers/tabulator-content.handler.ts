@@ -1,12 +1,13 @@
 import { Injectable } from '@angular/core';
 import { ContentHandler, ContentBinding, ContentPluginEditorOptions } from '@rollthecloudinc/content';
-import { AttributeValue } from '@rollthecloudinc/attributes';
+import { AttributeSerializerService, AttributeValue } from '@rollthecloudinc/attributes';
 import { Observable, of } from 'rxjs';
+import { TabulatorItem } from '../models/tabulator.models';
 
 @Injectable()
 export class TabulatorContentHandler implements ContentHandler {
 
-  constructor() { }
+  constructor(protected attributeSerializer: AttributeSerializerService) { }
 
   handleFile(file: File): Observable<Array<AttributeValue>> {
     return of();
@@ -50,6 +51,14 @@ export class TabulatorContentHandler implements ContentHandler {
 
   editorOptions(settings: Array<AttributeValue>): Observable<ContentPluginEditorOptions> {
     return of(new ContentPluginEditorOptions({ fullscreen: true }));
+  }
+
+  toObject(settings: Array<AttributeValue>): Observable<TabulatorItem> {
+    return of(new TabulatorItem(this.attributeSerializer.deserializeAsObject(settings)));
+  }
+
+  buildSettings(instance: TabulatorItem ): Array<AttributeValue> {
+    return this.attributeSerializer.serialize(instance, 'root').attributes;
   }
 
 }
