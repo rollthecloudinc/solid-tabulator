@@ -1,4 +1,4 @@
-import { Component, ViewEncapsulation, AfterViewInit, ViewChild, ElementRef, inject, Input } from "@angular/core";
+import { Component, ViewEncapsulation, AfterViewInit, ViewChild, ElementRef, inject, Input, DestroyRef, OnDestroy } from "@angular/core";
 import { Observable, Subject, switchMap, tap, map, combineLatest, BehaviorSubject, of, iif } from "rxjs";
 import {TabulatorFull as Tabulator} from 'tabulator-tables';
 import { DateTime } from "luxon";
@@ -8,15 +8,16 @@ import { AttributeValue } from "@rollthecloudinc/attributes";
 import { InlineContext } from "@rollthecloudinc/context";
 import { Pane, PanelResolverService } from "@rollthecloudinc/panels";
 import { ContentPluginManager } from "@rollthecloudinc/content";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 // define some sample data
-const tabledata = [
+/*const tabledata = [
  	{id:1, name:"Oli Bob", age:"12", col:"red", dob:""},
  	{id:2, name:"Mary May", age:"1", col:"blue", dob:"14/05/1982"},
  	{id:3, name:"Christine Lobowski", age:"42", col:"green", dob:"22/05/1982"},
  	{id:4, name:"Brendon Philips", age:"125", col:"orange", dob:"01/08/1980"},
  	{id:5, name:"Margret Marmajuke", age:"16", col:"yellow", dob:"31/01/1999"},
- ];
+ ];*/
 
 @Component({
   selector: 'solid-tabulator-renderer',
@@ -28,11 +29,12 @@ const tabledata = [
     TabulatorContentHandler
   ]
 })
-export class TabulatorRendererComponent implements AfterViewInit { 
+export class TabulatorRendererComponent implements AfterViewInit, OnDestroy { 
 
     protected readonly handler = inject(TabulatorContentHandler);
     protected readonly panelResolver = inject(PanelResolverService);
     protected readonly cpm = inject(ContentPluginManager);
+    protected readonly destroyRef = inject(DestroyRef); // 1. Inject DestroyRef
 
     protected tableInstance: Tabulator | undefined;
 
@@ -69,6 +71,7 @@ export class TabulatorRendererComponent implements AfterViewInit {
         this.contexts$,
         this.afterViewInit$
     ]).pipe(
+        takeUntilDestroyed(this.destroyRef),
         map(([settings, panes, originPanes, contexts]) => ({ settings, metadata: new Map<string, any>([ [ 'panes', [ ...(panes && Array.isArray(panes) ? panes : []), ...(originPanes && Array.isArray(originPanes) ? originPanes : []) ] ], [ 'contexts', contexts ] ]) })),   
         switchMap(({ settings, metadata }) => this.handler.toObject(settings).pipe(
             map(item => ({ item, metadata }))
@@ -93,6 +96,12 @@ export class TabulatorRendererComponent implements AfterViewInit {
     ngAfterViewInit() {
         this.afterViewInit$.next();
         this.afterViewInit$.complete();
+    }
+
+    ngOnDestroy() {
+        if (this.tableInstance) {
+            this.tableInstance.destroy();
+        }
     }
 
     protected renderTable({ item, tabledata }: { item: TabulatorItem, tabledata?: Array<{}> }) {
