@@ -81,8 +81,8 @@
     </mat-dialog-content>
 
     <mat-dialog-actions>
-        <button type="submit" mat-raised-button color="primary" mat-dialog-close [disabled]="!contentForm.valid">Save</button>
-        <button mat-raised-button color="secondary" mat-dialog-close (click)="cancel()" type="button">Cancel</button>       
+        <button type="submit" mat-raised-button color="primary" [disabled]="!contentForm.valid">Save</button>
+        <button mat-raised-button color="secondary" (click)="cancel()" type="button">Cancel</button>       
     </mat-dialog-actions>
 
 </form>
