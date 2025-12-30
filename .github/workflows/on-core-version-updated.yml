@@ -17,6 +17,12 @@ jobs:
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
+      - uses: actions/setup-node@v3
+        name: Setup Node
+        with:
+          node-version: 22
+          registry-url: "https://npm.pkg.github.com"
+
       - name: Extract @rollthecloudinc/* dependencies
         id: extract
         run: |
