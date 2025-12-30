@@ -11,19 +11,11 @@ permissions:
 jobs:
   update-rollthecloudinc-packages:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      # Create branch FIRST
-      - name: Create update branch
-        id: branch
-        run: |
-          version="${{ github.event.client_payload.version }}"
-          branch="update-core-version-$version"
-          git checkout -b "$branch"
-          echo "branch=$branch" >> "$GITHUB_OUTPUT"
 
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
@@ -33,7 +25,6 @@ jobs:
         with:
           node-version: 22
           registry-url: "https://npm.pkg.github.com"
-
 
       - name: Extract @rollthecloudinc/* dependencies
         id: extract
@@ -59,7 +50,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.RTC_GITHUB_REGISTRY }}
         run: |
           version="${{ github.event.client_payload.version }}"
-          echo "Updating packages to version: $version"
+          echo "Updating @rollthecloudinc packages to version: $version"
 
           while IFS= read -r pkg; do
             if [ -n "$pkg" ]; then
@@ -71,33 +62,50 @@ jobs:
       - name: Update project version in package.json
         run: |
           version="${{ github.event.client_payload.version }}"
+          echo "Setting project version to $version"
+
           tmp=$(mktemp)
           jq --arg v "$version" '.version = $v' package.json > "$tmp"
           mv "$tmp" package.json
 
-      # FORCE DIFF so PR is always created
-      - name: Force diff
+      # --- FORCED DIFF: guarantees PR creation ---
+      - name: Add forced timestamp metadata to ensure diff
         run: |
           tmp=$(mktemp)
           jq '. + { "__workflowTimestamp": "'$(date +%s)'" }' package.json > "$tmp"
           mv "$tmp" package.json
 
+      - name: Show final package.json
+        run: cat package.json
+
+      - name: Create update branch
+        id: branch
+        run: |
+          version="${{ github.event.client_payload.version }}"
+          branch="update-core-version-$version"
+
+          # if branch already exists remotely, delete it first (safe)
+          git push origin --delete "$branch" 2>/dev/null || true
+
+          git checkout -b "$branch"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
       - name: Commit changes
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add package.json package-lock.json || true
+
+          git add package.json package-lock.json
 
           if git commit -m "Automated update to version ${{ github.event.client_payload.version }}"; then
             echo "Changes committed."
           else
-            echo "No changes detected. Exiting."
+            echo "Nothing to commit — exiting."
             exit 0
           fi
 
       - name: Push branch
-        run: |
-          git push origin ${{ steps.branch.outputs.branch }}
+        run: git push origin ${{ steps.branch.outputs.branch }}
 
       - name: Open Pull Request
         id: pr
@@ -106,12 +114,14 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ steps.branch.outputs.branch }}
           title: "Update packages to ${{ github.event.client_payload.version }}"
-          body: "Automated update of package versions."
+          body: "Automated update of @rollthecloudinc packages and project version."
           base: master
+          labels: automated-update
 
       - name: Auto-merge PR
         if: steps.pr.outputs.pull-request-number != ''
         run: |
-          gh pr merge ${{ steps.pr.outputs.pull-request-number }} --merge --delete-branch
+          gh pr merge ${{ steps.pr.outputs.pull-request-number }} \
+            --merge --delete-branch
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
