@@ -21,7 +21,6 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y jq
 
       - uses: actions/setup-node@v3
-        name: Setup Node
         with:
           node-version: 22
           registry-url: "https://npm.pkg.github.com"
@@ -36,7 +35,7 @@ jobs:
             | select(. != "@rollthecloudinc/ngx-angular-query-builder")
           ' package.json)
 
-          echo "Found packages:"
+          echo "Packages found:"
           echo "$pkgs"
 
           {
@@ -50,7 +49,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.RTC_GITHUB_REGISTRY }}
         run: |
           version="${{ github.event.client_payload.version }}"
-          echo "Updating @rollthecloudinc packages to version: $version"
+          echo "Updating packages to version: $version"
 
           while IFS= read -r pkg; do
             if [ -n "$pkg" ]; then
@@ -62,66 +61,38 @@ jobs:
       - name: Update project version in package.json
         run: |
           version="${{ github.event.client_payload.version }}"
-          echo "Setting project version to $version"
-
           tmp=$(mktemp)
           jq --arg v "$version" '.version = $v' package.json > "$tmp"
-          mv "$tmp" package.json
-
-      # --- FORCED DIFF: guarantees PR creation ---
-      - name: Add forced timestamp metadata to ensure diff
-        run: |
-          tmp=$(mktemp)
-          jq '. + { "__workflowTimestamp": "'$(date +%s)'" }' package.json > "$tmp"
           mv "$tmp" package.json
 
       - name: Show final package.json
         run: cat package.json
 
-      - name: Create update branch
-        id: branch
-        run: |
-          version="${{ github.event.client_payload.version }}"
-          branch="update-core-version-$version"
-
-          # if branch already exists remotely, delete it first (safe)
-          git push origin --delete "$branch" 2>/dev/null || true
-
-          git checkout -b "$branch"
-          echo "branch=$branch" >> "$GITHUB_OUTPUT"
-
-      - name: Commit changes
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-
-          git add package.json package-lock.json
-
-          if git commit -m "Automated update to version ${{ github.event.client_payload.version }}"; then
-            echo "Changes committed."
-          else
-            echo "Nothing to commit — exiting."
-            exit 0
-          fi
-
-      - name: Push branch
-        run: git push origin ${{ steps.branch.outputs.branch }}
-
-      - name: Open Pull Request
-        id: pr
+      # --------------------------------------------------------------------
+      # CREATE PULL REQUEST — create-pull-request handles commit & branch
+      # --------------------------------------------------------------------
+      - name: Create Pull Request
+        id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ steps.branch.outputs.branch }}
-          title: "Update packages to ${{ github.event.client_payload.version }}"
-          body: "Automated update of @rollthecloudinc packages and project version."
+          commit-message: "Update @rollthecloudinc packages to ${{ github.event.client_payload.version }}"
+          branch: update-core-version-${{ github.event.client_payload.version }}
+          delete-branch: true
+          title: "Update @rollthecloudinc packages to ${{ github.event.client_payload.version }}"
+          body: |
+            Automated update to:
+            - @rollthecloudinc/* packages
+            - package.json project version
           base: master
-          labels: automated-update
+          add-paths: |
+            package.json
+            package-lock.json
 
+      # Auto-merge PR if it was created
       - name: Auto-merge PR
-        if: steps.pr.outputs.pull-request-number != ''
+        if: steps.cpr.outputs.pull-request-number != ''
         run: |
-          gh pr merge ${{ steps.pr.outputs.pull-request-number }} \
-            --merge --delete-branch
+          gh pr merge ${{ steps.cpr.outputs.pull-request-number }} --merge
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
