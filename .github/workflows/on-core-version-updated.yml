@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          persist-credentials: true   # required for push
+          persist-credentials: true
           fetch-depth: 0
 
       - name: Install jq
@@ -21,17 +21,29 @@ jobs:
         id: extract
         run: |
           pkgs=$(jq -r '.dependencies | keys[] | select(startswith("@rollthecloudinc/"))' package.json)
-          echo "packages=$pkgs" >> "$GITHUB_OUTPUT"
+
+          echo "Found packages:"
+          echo "$pkgs"
+
+          # Write multiline list to GITHUB_OUTPUT properly
+          {
+            echo "packages<<EOF"
+            echo "$pkgs"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Update each package to event version
         run: |
           version="${{ github.event.client_payload.version }}"
           echo "Updating packages to version: $version"
 
-          for pkg in ${{ steps.extract.outputs.packages }}; do
-            echo "Updating $pkg..."
-            npm install "$pkg@$version"
-          done
+          # Loop through the multiline output
+          while IFS= read -r pkg; do
+            if [ -n "$pkg" ]; then
+              echo "Updating $pkg..."
+              npm install "$pkg@$version"
+            fi
+          done <<< "${{ steps.extract.outputs.packages }}"
 
       - name: Update project version in package.json
         run: |
