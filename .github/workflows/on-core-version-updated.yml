@@ -34,7 +34,39 @@ jobs:
           node-version: 22
           registry-url: "https://npm.pkg.github.com"
 
-      # ... your extraction and npm install steps stay here ...
+
+      - name: Extract @rollthecloudinc/* dependencies
+        id: extract
+        run: |
+          pkgs=$(jq -r '
+            .dependencies
+            | keys[]
+            | select(startswith("@rollthecloudinc/"))
+            | select(. != "@rollthecloudinc/ngx-angular-query-builder")
+          ' package.json)
+
+          echo "Found packages:"
+          echo "$pkgs"
+
+          {
+            echo "packages<<EOF"
+            echo "$pkgs"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Update each package to event version
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.RTC_GITHUB_REGISTRY }}
+        run: |
+          version="${{ github.event.client_payload.version }}"
+          echo "Updating packages to version: $version"
+
+          while IFS= read -r pkg; do
+            if [ -n "$pkg" ]; then
+              echo "Updating $pkg..."
+              npm install "$pkg@$version" --force
+            fi
+          done <<< "${{ steps.extract.outputs.packages }}"
 
       - name: Update project version in package.json
         run: |
