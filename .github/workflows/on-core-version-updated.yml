@@ -1,125 +1,72 @@
-name: On Core Version Updated
+steps:
+  - uses: actions/checkout@v4
+    with:
+      fetch-depth: 0
 
-on:
-  repository_dispatch:
-    types: [core_version_updated]
+  # Create branch FIRST
+  - name: Create update branch
+    id: branch
+    run: |
+      version="${{ github.event.client_payload.version }}"
+      branch="update-core-version-$version"
+      git checkout -b "$branch"
+      echo "branch=$branch" >> "$GITHUB_OUTPUT"
 
-permissions:
-  contents: write
-  pull-requests: write
+  - name: Install jq
+    run: sudo apt-get update && sudo apt-get install -y jq
 
-jobs:
-  update-rollthecloudinc-packages:
-    runs-on: ubuntu-latest
+  - uses: actions/setup-node@v3
+    name: Setup Node
+    with:
+      node-version: 22
+      registry-url: "https://npm.pkg.github.com"
 
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+  # ... your extraction and npm install steps stay here ...
 
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
+  - name: Update project version in package.json
+    run: |
+      version="${{ github.event.client_payload.version }}"
+      tmp=$(mktemp)
+      jq --arg v "$version" '.version = $v' package.json > "$tmp"
+      mv "$tmp" package.json
 
-      - uses: actions/setup-node@v3
-        name: Setup Node
-        with:
-          node-version: 22
-          registry-url: "https://npm.pkg.github.com"
+  # FORCE DIFF so PR is always created
+  - name: Force diff
+    run: |
+      tmp=$(mktemp)
+      jq '. + { "__workflowTimestamp": "'$(date +%s)'" }' package.json > "$tmp"
+      mv "$tmp" package.json
 
-      - name: Extract @rollthecloudinc/* dependencies
-        id: extract
-        run: |
-          pkgs=$(jq -r '
-            .dependencies
-            | keys[]
-            | select(startswith("@rollthecloudinc/"))
-            | select(. != "@rollthecloudinc/ngx-angular-query-builder")
-          ' package.json)
+  - name: Commit changes
+    run: |
+      git config user.name "github-actions"
+      git config user.email "github-actions@github.com"
+      git add package.json package-lock.json || true
 
-          echo "Found packages:"
-          echo "$pkgs"
+      if git commit -m "Automated update to version ${{ github.event.client_payload.version }}"; then
+        echo "Changes committed."
+      else
+        echo "No changes detected. Exiting."
+        exit 0
+      fi
 
-          {
-            echo "packages<<EOF"
-            echo "$pkgs"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+  - name: Push branch
+    run: |
+      git push origin ${{ steps.branch.outputs.branch }}
 
-      - name: Update each package to event version
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.RTC_GITHUB_REGISTRY }}
-        run: |
-          version="${{ github.event.client_payload.version }}"
-          echo "Updating packages to version: $version"
+  - name: Open Pull Request
+    id: pr
+    uses: peter-evans/create-pull-request@v6
+    with:
+      token: ${{ secrets.GITHUB_TOKEN }}
+      branch: ${{ steps.branch.outputs.branch }}
+      title: "Update packages to ${{ github.event.client_payload.version }}"
+      body: "Automated update of package versions."
+      base: master
 
-          while IFS= read -r pkg; do
-            if [ -n "$pkg" ]; then
-              echo "Updating $pkg..."
-              npm install "$pkg@$version" --force
-            fi
-          done <<< "${{ steps.extract.outputs.packages }}"
-
-      - name: Update project version in package.json
-        run: |
-          version="${{ github.event.client_payload.version }}"
-          echo "Setting project version to $version"
-
-          tmp=$(mktemp)
-          jq --arg v "$version" '.version = $v' package.json > "$tmp"
-          mv "$tmp" package.json
-
-      # --- FORCED DIFF (always produce a PR) ---
-      - name: Force diff so PR is always created
-        run: |
-          tmp=$(mktemp)
-          jq '. + { "__workflowTimestamp": "'$(date +%s)'" }' package.json > "$tmp"
-          mv "$tmp" package.json
-        # Explanation:
-        # Adds a harmless metadata field that changes every run
-
-      - name: Show final package.json
-        run: cat package.json
-
-      - name: Create update branch
-        id: branch
-        run: |
-          version="${{ github.event.client_payload.version }}"
-          branch="update-core-version-$version"
-
-          git checkout -b "$branch"
-          echo "branch=$branch" >> "$GITHUB_OUTPUT"
-
-      - name: Commit changes
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-
-          git add package.json package-lock.json || true
-
-          if git commit -m "Automated update to version ${{ github.event.client_payload.version }}"; then
-            echo "Changes committed."
-          else
-            echo "No changes detected. Exiting."
-            exit 0
-          fi
-
-      - name: Push branch
-        run: |
-          git push origin ${{ steps.branch.outputs.branch }}
-
-      - name: Open Pull Request
-        id: pr
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ steps.branch.outputs.branch }}
-          title: "Update packages to ${{ github.event.client_payload.version }}"
-          body: "Automated update of package versions."
-          base: master
-
-      - name: Auto-merge PR
-        if: steps.pr.outputs.pull-request-number != ''
-        run: |
-          gh pr merge ${{ steps.pr.outputs.pull-request-number }} --merge --delete-branch
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  - name: Auto-merge PR
+    if: steps.pr.outputs.pull-request-number != ''
+    run: |
+      gh pr merge ${{ steps.pr.outputs.pull-request-number }} --merge --delete-branch
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
