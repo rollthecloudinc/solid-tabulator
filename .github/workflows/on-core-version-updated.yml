@@ -44,6 +44,8 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Update each package to event version
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.RTC_GITHUB_REGISTRY }}
         run: |
           version="${{ github.event.client_payload.version }}"
           echo "Updating packages to version: $version"
