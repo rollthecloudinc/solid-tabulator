@@ -5,13 +5,57 @@ on:
     types: [core_version_updated]
 
 jobs:
-  test:
+  update-rollthecloudinc-packages:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Print event
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true   # required for push
+          fetch-depth: 0
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Extract @rollthecloudinc/* dependencies
+        id: extract
         run: |
-          echo "Workflow triggered!"
-          echo "Version: ${{ github.event.client_payload.version }}"
-          echo "Event type: ${{ github.event.action }}"
-          echo "Full event JSON:"
-          echo "${{ toJson(github.event) }}"
+          pkgs=$(jq -r '.dependencies | keys[] | select(startswith("@rollthecloudinc/"))' package.json)
+          echo "packages=$pkgs" >> "$GITHUB_OUTPUT"
+
+      - name: Update each package to event version
+        run: |
+          version="${{ github.event.client_payload.version }}"
+          echo "Updating packages to version: $version"
+
+          for pkg in ${{ steps.extract.outputs.packages }}; do
+            echo "Updating $pkg..."
+            npm install "$pkg@$version"
+          done
+
+      - name: Update project version in package.json
+        run: |
+          version="${{ github.event.client_payload.version }}"
+          echo "Setting project version to $version"
+
+          tmp=$(mktemp)
+          jq --arg v "$version" '.version = $v' package.json > "$tmp"
+          mv "$tmp" package.json
+
+      - name: Show final package.json
+        run: cat package.json
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add package.json package-lock.json || true
+
+          if git commit -m "Update @rollthecloudinc dependencies and project version to ${{ github.event.client_payload.version }}"; then
+            echo "Changes committed."
+            git push
+            echo "Pushed successfully."
+          else
+            echo "No changes detected. Nothing to commit."
+          fi
