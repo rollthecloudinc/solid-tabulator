@@ -70,25 +70,46 @@ jobs:
       - name: Show final package.json
         run: cat package.json
 
-      - name: Commit and push changes using PAT
-        env:
-          TOKEN: ${{ secrets.RTC_GITHUB_REGISTRY }}
-          REPO: ${{ github.repository }}
+      - name: Create update branch
+        id: branch
+        run: |
+          version="${{ github.event.client_payload.version }}"
+          branch="update-core-version-$version"
+
+          git checkout -b "$branch"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Commit changes
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
           git add package.json package-lock.json || true
 
-          # Commit only if there are changes
           if git commit -m "Update @rollthecloudinc dependencies and project version to ${{ github.event.client_payload.version }}"; then
             echo "Changes committed."
-
-            # Replace origin with PAT-based authentication
-            git remote set-url origin https://x-access-token:${TOKEN}@github.com/${REPO}.git
-
-            git push origin HEAD:${{ github.ref_name }}
-            echo "Pushed successfully."
           else
-            echo "No changes detected. Nothing to commit."
+            echo "No changes detected. Exiting."
+            exit 0
           fi
+
+      - name: Push branch
+        run: |
+          git push origin ${{ steps.branch.outputs.branch }}
+
+      - name: Open Pull Request
+        id: pr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ steps.branch.outputs.branch }}
+          title: "Update packages to ${{ github.event.client_payload.version }}"
+          body: "Automated update of package versions."
+          base: master
+
+      - name: Auto-merge PR
+        if: steps.pr.outputs.pull-request-number != ''
+        run: |
+          gh pr merge ${{ steps.pr.outputs.pull-request-number }} --merge --delete-branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
