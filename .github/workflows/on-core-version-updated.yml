@@ -1,72 +1,85 @@
-steps:
-  - uses: actions/checkout@v4
-    with:
-      fetch-depth: 0
+name: On Core Version Updated
 
-  # Create branch FIRST
-  - name: Create update branch
-    id: branch
-    run: |
-      version="${{ github.event.client_payload.version }}"
-      branch="update-core-version-$version"
-      git checkout -b "$branch"
-      echo "branch=$branch" >> "$GITHUB_OUTPUT"
+on:
+  repository_dispatch:
+    types: [core_version_updated]
 
-  - name: Install jq
-    run: sudo apt-get update && sudo apt-get install -y jq
+permissions:
+  contents: write
+  pull-requests: write
 
-  - uses: actions/setup-node@v3
-    name: Setup Node
-    with:
-      node-version: 22
-      registry-url: "https://npm.pkg.github.com"
+jobs:
+  update-rollthecloudinc-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-  # ... your extraction and npm install steps stay here ...
+      # Create branch FIRST
+      - name: Create update branch
+        id: branch
+        run: |
+          version="${{ github.event.client_payload.version }}"
+          branch="update-core-version-$version"
+          git checkout -b "$branch"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
 
-  - name: Update project version in package.json
-    run: |
-      version="${{ github.event.client_payload.version }}"
-      tmp=$(mktemp)
-      jq --arg v "$version" '.version = $v' package.json > "$tmp"
-      mv "$tmp" package.json
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
-  # FORCE DIFF so PR is always created
-  - name: Force diff
-    run: |
-      tmp=$(mktemp)
-      jq '. + { "__workflowTimestamp": "'$(date +%s)'" }' package.json > "$tmp"
-      mv "$tmp" package.json
+      - uses: actions/setup-node@v3
+        name: Setup Node
+        with:
+          node-version: 22
+          registry-url: "https://npm.pkg.github.com"
 
-  - name: Commit changes
-    run: |
-      git config user.name "github-actions"
-      git config user.email "github-actions@github.com"
-      git add package.json package-lock.json || true
+      # ... your extraction and npm install steps stay here ...
 
-      if git commit -m "Automated update to version ${{ github.event.client_payload.version }}"; then
-        echo "Changes committed."
-      else
-        echo "No changes detected. Exiting."
-        exit 0
-      fi
+      - name: Update project version in package.json
+        run: |
+          version="${{ github.event.client_payload.version }}"
+          tmp=$(mktemp)
+          jq --arg v "$version" '.version = $v' package.json > "$tmp"
+          mv "$tmp" package.json
 
-  - name: Push branch
-    run: |
-      git push origin ${{ steps.branch.outputs.branch }}
+      # FORCE DIFF so PR is always created
+      - name: Force diff
+        run: |
+          tmp=$(mktemp)
+          jq '. + { "__workflowTimestamp": "'$(date +%s)'" }' package.json > "$tmp"
+          mv "$tmp" package.json
 
-  - name: Open Pull Request
-    id: pr
-    uses: peter-evans/create-pull-request@v6
-    with:
-      token: ${{ secrets.GITHUB_TOKEN }}
-      branch: ${{ steps.branch.outputs.branch }}
-      title: "Update packages to ${{ github.event.client_payload.version }}"
-      body: "Automated update of package versions."
-      base: master
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add package.json package-lock.json || true
 
-  - name: Auto-merge PR
-    if: steps.pr.outputs.pull-request-number != ''
-    run: |
-      gh pr merge ${{ steps.pr.outputs.pull-request-number }} --merge --delete-branch
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          if git commit -m "Automated update to version ${{ github.event.client_payload.version }}"; then
+            echo "Changes committed."
+          else
+            echo "No changes detected. Exiting."
+            exit 0
+          fi
+
+      - name: Push branch
+        run: |
+          git push origin ${{ steps.branch.outputs.branch }}
+
+      - name: Open Pull Request
+        id: pr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ steps.branch.outputs.branch }}
+          title: "Update packages to ${{ github.event.client_payload.version }}"
+          body: "Automated update of package versions."
+          base: master
+
+      - name: Auto-merge PR
+        if: steps.pr.outputs.pull-request-number != ''
+        run: |
+          gh pr merge ${{ steps.pr.outputs.pull-request-number }} --merge --delete-branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
