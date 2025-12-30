@@ -4,6 +4,10 @@ on:
   repository_dispatch:
     types: [core_version_updated]
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   update-rollthecloudinc-packages:
     runs-on: ubuntu-latest
@@ -11,7 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          persist-credentials: true
           fetch-depth: 0
 
       - name: Install jq
@@ -36,7 +39,6 @@ jobs:
           echo "Found packages:"
           echo "$pkgs"
 
-          # Write multiline list to GITHUB_OUTPUT properly
           {
             echo "packages<<EOF"
             echo "$pkgs"
@@ -50,7 +52,6 @@ jobs:
           version="${{ github.event.client_payload.version }}"
           echo "Updating packages to version: $version"
 
-          # Loop through the multiline output
           while IFS= read -r pkg; do
             if [ -n "$pkg" ]; then
               echo "Updating $pkg..."
@@ -66,6 +67,15 @@ jobs:
           tmp=$(mktemp)
           jq --arg v "$version" '.version = $v' package.json > "$tmp"
           mv "$tmp" package.json
+
+      # --- FORCED DIFF (always produce a PR) ---
+      - name: Force diff so PR is always created
+        run: |
+          tmp=$(mktemp)
+          jq '. + { "__workflowTimestamp": "'$(date +%s)'" }' package.json > "$tmp"
+          mv "$tmp" package.json
+        # Explanation:
+        # Adds a harmless metadata field that changes every run
 
       - name: Show final package.json
         run: cat package.json
@@ -86,7 +96,7 @@ jobs:
 
           git add package.json package-lock.json || true
 
-          if git commit -m "Update @rollthecloudinc dependencies and project version to ${{ github.event.client_payload.version }}"; then
+          if git commit -m "Automated update to version ${{ github.event.client_payload.version }}"; then
             echo "Changes committed."
           else
             echo "No changes detected. Exiting."
