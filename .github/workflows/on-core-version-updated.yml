@@ -20,7 +20,12 @@ jobs:
       - name: Extract @rollthecloudinc/* dependencies
         id: extract
         run: |
-          pkgs=$(jq -r '.dependencies | keys[] | select(startswith("@rollthecloudinc/"))' package.json)
+          pkgs=$(jq -r '
+            .dependencies
+            | keys[]
+            | select(startswith("@rollthecloudinc/"))
+            | select(. != "@rollthecloudinc/ngx-angular-query-builder")
+          ' package.json)
 
           echo "Found packages:"
           echo "$pkgs"
@@ -41,7 +46,7 @@ jobs:
           while IFS= read -r pkg; do
             if [ -n "$pkg" ]; then
               echo "Updating $pkg..."
-              npm install "$pkg@$version"
+              npm install "$pkg@$version" --force
             fi
           done <<< "${{ steps.extract.outputs.packages }}"
 
