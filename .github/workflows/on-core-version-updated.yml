@@ -1,0 +1,17 @@
+name: On Core Version Updated
+
+on:
+  repository_dispatch:
+    types: [core_version_updated]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print event
+        run: |
+          echo "Workflow triggered!"
+          echo "Version: ${{ github.event.client_payload.version }}"
+          echo "Event type: ${{ github.event.action }}"
+          echo "Full event JSON:"
+          echo "${{ toJson(github.event) }}"

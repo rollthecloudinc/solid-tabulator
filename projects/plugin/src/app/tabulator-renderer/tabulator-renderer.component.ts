@@ -2,6 +2,8 @@ import { Component, ViewEncapsulation, AfterViewInit, ViewChild, ElementRef, inj
 import { Observable, Subject, switchMap, tap, map, combineLatest, BehaviorSubject, of, iif } from "rxjs";
 import {TabulatorFull as Tabulator} from 'tabulator-tables';
 import { DateTime } from "luxon";
+import jsPDF from 'jspdf'
+import { applyPlugin } from 'jspdf-autotable'
 import { TabulatorItem } from "../models/tabulator.models";
 import { TabulatorContentHandler } from "../handlers/tabulator-content.handler";
 import { AttributeValue } from "@rollthecloudinc/attributes";
@@ -9,6 +11,8 @@ import { InlineContext } from "@rollthecloudinc/context";
 import { Pane, PanelResolverService } from "@rollthecloudinc/panels";
 import { ContentPluginManager } from "@rollthecloudinc/content";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+
+applyPlugin(jsPDF)
 
 // define some sample data
 /*const tabledata = [
@@ -124,7 +128,8 @@ export class TabulatorRendererComponent implements AfterViewInit, OnDestroy {
                 ...(col.sorter && col.sorter !== '' ? { sorter: col.sorter } : {})
             })),
             dependencies: {
-                DateTime: DateTime
+                DateTime: DateTime,
+                jspdf: jsPDF
             }
         });
     }

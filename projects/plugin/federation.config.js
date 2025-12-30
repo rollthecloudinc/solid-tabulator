@@ -23,7 +23,9 @@ module.exports = withNativeFederation({
   skip: [
     'rxjs',
     'tabulator-tables',
-    "luxon"
+    "luxon",
+    "jspdf",
+    "jspdf-autotable"
   ],
 
   features: {
