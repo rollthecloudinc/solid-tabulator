@@ -70,16 +70,24 @@ jobs:
       - name: Show final package.json
         run: cat package.json
 
-      - name: Commit and push changes
+      - name: Commit and push changes using PAT
+        env:
+          TOKEN: ${{ secrets.RTC_GITHUB_REGISTRY }}
+          REPO: ${{ github.repository }}
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
           git add package.json package-lock.json || true
 
+          # Commit only if there are changes
           if git commit -m "Update @rollthecloudinc dependencies and project version to ${{ github.event.client_payload.version }}"; then
             echo "Changes committed."
-            git push
+
+            # Replace origin with PAT-based authentication
+            git remote set-url origin https://x-access-token:${TOKEN}@github.com/${REPO}.git
+
+            git push origin HEAD:${{ github.ref_name }}
             echo "Pushed successfully."
           else
             echo "No changes detected. Nothing to commit."
