@@ -75,7 +75,7 @@ jobs:
         id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RTC_GITHUB_REGISTRY }}
           commit-message: "Update @rollthecloudinc packages to ${{ github.event.client_payload.version }}"
           branch: update-core-version-${{ github.event.client_payload.version }}
           delete-branch: true
@@ -95,4 +95,4 @@ jobs:
         run: |
           gh pr merge ${{ steps.cpr.outputs.pull-request-number }} --merge
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RTC_GITHUB_REGISTRY }}
